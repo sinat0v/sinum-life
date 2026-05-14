@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Validation Helper
+    function isValidUser(data) {
+      return data.get('userId', '') is string
+             && data.get('username', '') is string
+             && data.get('displayName', '') is string
+             && (data.get('balance', 0) is number)
+             && (data.get('bankBalance', 0) is number)
+             && (data.get('credits', 0) is number)
+             && (data.get('inventory', []) is list)
+             && (data.get('visibility', 'public') in ['public', 'private'])
+             && (data.get('stats', {}) is map)
+             && (data.get('lastPosition', {}) is map)
+             && (data.get('homeId', '') is string)
+             && (data.get('currentRoom', '') is string);
+    }
+
+    function isValidHome(data) {
+      return data.ownerId is string 
+             && data.get('type', 'studio') in ['studio', 'apartment']
+             && data.get('address', '') is string;
+    }
+
+    match /_internal/connection-test {
+      allow get: if isSignedIn();
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (resource == null || resource.data.visibility == 'public');
+      
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming())
+                       && incoming().keys().hasAll(['userId', 'username', 'displayName', 'balance', 'bankBalance', 'credits', 'visibility', 'stats', 'lastPosition', 'inventory', 'createdAt', 'updatedAt', 'homeId', 'currentRoom'])
+                       && incoming().keys().size() == 14
+                       && (incoming().get('createdAt', request.time) == request.time)
+                       && (incoming().get('updatedAt', request.time) == request.time);
+      
+      allow update: if isOwner(userId) && isValidUser(incoming())
+                       && (incoming().get('createdAt', existing().createdAt) == existing().createdAt)
+                       && (incoming().get('updatedAt', request.time) == request.time)
+                       && (
+                         // Action: General Update (movement, stats, visibility, name, home state)
+                         incoming().diff(existing()).affectedKeys().hasOnly(['lastPosition', 'stats', 'updatedAt', 'displayName', 'visibility', 'homeId', 'currentRoom']) ||
+                         // Action: Banking & Economy (balance transfer, credits)
+                         incoming().diff(existing()).affectedKeys().hasOnly(['balance', 'bankBalance', 'credits', 'updatedAt']) ||
+                         // Action: Shopping (balance + inventory)
+                         incoming().diff(existing()).affectedKeys().hasOnly(['balance', 'inventory', 'updatedAt']) ||
+                         // Action: Consume Item (inventory + stats)
+                         incoming().diff(existing()).affectedKeys().hasOnly(['inventory', 'stats', 'updatedAt']) ||
+                         // Action: Buy Home (balance + homeId)
+                         incoming().diff(existing()).affectedKeys().hasOnly(['balance', 'homeId', 'updatedAt'])
+                       );
+      
+      allow delete: if false;
+    }
+
+    match /homes/{homeId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidHome(incoming())
+                       && (incoming().get('createdAt', request.time) == request.time);
+      allow update: if isSignedIn() && isOwner(existing().ownerId) && isValidHome(incoming());
+      allow delete: if isSignedIn() && isOwner(existing().ownerId);
+    }
+    
+    match /leaderboard/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false; // System-only or derived in production, but for now we'll allow restricted updates if we had a dedicated leaderboard sync
+    }
+  }
+}

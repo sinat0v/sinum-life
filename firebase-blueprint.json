@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with Sinum-Life stats",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string", "description": "@handle (English characters only)" },
+        "displayName": { "type": "string" },
+        "balance": { "type": "number" },
+        "bankBalance": { "type": "number" },
+        "credits": { "type": "number" },
+        "visibility": { "type": "string", "enum": ["public", "private"] },
+        "homeId": { "type": "string", "description": "ID of the user's home" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "level": { "type": "number" },
+            "xp": { "type": "number" },
+            "health": { "type": "number" },
+            "hunger": { "type": "number" },
+            "energy": { "type": "number" }
+          }
+        },
+        "inventory": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "lastPosition": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "displayName", "balance", "bankBalance"]
+    },
+    "Home": {
+      "title": "Home",
+      "description": "User home data",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "address": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Main user document"
+    },
+    "/homes/{homeId}": {
+      "schema": "Home",
+      "description": "Home documents"
+    }
+  }
+}
