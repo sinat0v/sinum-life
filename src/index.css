@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0A0A0A;
+  --color-bg-secondary: #0F0F0F;
+  --color-bg-tertiary: #1A1A1A;
+  --color-border-main: #2A2A2A;
+  --color-text-dim: #666666;
+  --color-text-muted: #444444;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  background-color: var(--color-bg-primary);
+  color: #E0E0E0;
+  overflow: hidden;
+}
